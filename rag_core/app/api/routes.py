@@ -1,6 +1,8 @@
 from collections import deque
+import datetime
 import logging
 from flask import Blueprint, request, jsonify, session
+from flask_cors import cross_origin
 from app.services.search_service import SearchService
 from app.services.qa_service import QAService
 from app.utils.conversation_manager import ConversationManager
@@ -113,71 +115,95 @@ def search():
         'method': search_method or DEFAULT_SEARCH_METHOD
     })
 
-@api.route('/qa', methods=['POST'])
-def question_answer():
+@api.route('/qa', methods=['POST', 'OPTIONS'])
+@cross_origin()
+async def question_answer():
     """
-    Question answering endpoint with conversation context that performs comparative analysis
-    
-    Expected JSON payload:
-    {
-        "query": "search query",
-        "user_id": "unique_user_id",
-        "top_n": 5,                    
-        "search_method": "hybrid",
-        "use_context": true
-    }
+    Question answering endpoint that performs comparative analysis
     """
-    data = request.json
-    
-    if not data or 'query' not in data:
-        return jsonify({'error': 'Query is required'}), 400
-    
-    query = data['query']
-    user_id = data.get('user_id', 'anonymous')
-    top_n = data.get('top_n', TOP_N_RESULTS)
-    search_method = data.get('search_method', None)
-    use_context = data.get('use_context', True)
-    
-    logger.info(f"QA request received for user '{user_id}', query: '{query}', use_context: {use_context}")
-    
-    # Get conversation history if needed
-    conversation_history = None
-    if use_context:
-        conversation_history = conversation_manager.get_conversation(user_id)
-    
-    # Perform comparative analysis using QAService
-    analysis = qa_service.generate_comparative_analysis(query, conversation_history)
-    
-    # If query was rejected for security reasons
-    if analysis.get('security_flag', False):
-        return jsonify({
+    # Handle preflight request
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        # Validate request
+        data = request.json
+        if not data or 'query' not in data:
+            return jsonify({
+                'answer': 'Query is required',
+                'status': 'error',
+                'metadata': {
+                    'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    'user': 'abid-sara'
+                }
+            }), 400
+
+        # Extract parameters
+        query = data['query']
+        user_id = data.get('user_id', 'anonymous')
+        use_context = data.get('use_context', True)
+        
+        logger.info(f"QA request received for user '{user_id}', query: '{query}', use_context: {use_context}")
+
+        # Get conversation history if needed
+        conversation_history = None
+        if use_context:
+            conversation_history = conversation_manager.get_conversation(user_id)
+
+        # Use generate_comparative_analysis instead of process_query
+        analysis = qa_service.generate_comparative_analysis(query, conversation_history)
+
+        # If query was rejected for security reasons
+        if analysis.get('security_flag', False):
+            return jsonify({
+                'query': query,
+                'answer': analysis['answer'],
+                'status': 'rejected',
+                'security_flag': True
+            }), 403
+
+        # Add the new messages to conversation history
+        conversation_manager.add_message(user_id, 'user', query)
+        conversation_manager.add_message(user_id, 'assistant', analysis['answer'])
+
+        # Prepare response with safe access to optional fields
+        response_data = {
             'query': query,
             'answer': analysis['answer'],
-            'status': 'rejected',
-            'security_flag': True
-        }), 403
-    
-    # Add the new messages to conversation history
-    conversation_manager.add_message(user_id, 'user', query)
-    conversation_manager.add_message(user_id, 'assistant', analysis['answer'])
-    
-    # Return response with context and analysis
-    return jsonify({
-        'query': query,
-        'answer': analysis['answer'],
-        'status': analysis['status'],
-        'context': {
-            'satim': analysis['context']['satim'],
-            'international': analysis['context']['international']
-        },
-        'scores': {
-            'satim': analysis['scores']['satim'],
-            'international': analysis['scores']['international']
-        },
-        'method': search_method or DEFAULT_SEARCH_METHOD,
-        'conversation_history': conversation_manager.get_conversation(user_id)
-    })
-    
+            'status': analysis['status']
+        }
+
+        # Add context if available
+        if 'context' in analysis:
+            response_data['context'] = {
+                'satim': analysis['context'].get('satim', []),
+                'international': analysis['context'].get('international', [])
+            }
+
+        # Add scores if available
+        if 'scores' in analysis:
+            response_data['scores'] = {
+                'satim': analysis['scores'].get('satim', []),
+                'international': analysis['scores'].get('international', [])
+            }
+
+        # Add method and conversation history
+        response_data['method'] = data.get('search_method', 'hybrid')
+        response_data['conversation_history'] = conversation_manager.get_conversation(user_id)
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error processing request: {str(e)}", exc_info=True)
+        return jsonify({
+            'answer': '### Error\nAn error occurred while processing your request.',
+            'status': 'error',
+            'metadata': {
+                'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                'user': 'abid-sara'
+            }
+        }), 500
+        
 @api.route('/conversation', methods=['POST'])
 def update_conversation():
     """

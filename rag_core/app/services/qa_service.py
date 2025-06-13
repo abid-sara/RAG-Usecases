@@ -159,7 +159,7 @@ class QAService:
             }
         }
 
-    def _build_comparative_prompt(self, use_case: str, satim_chunks: List[str], intl_chunks: List[str],
+    def _build_analysis_prompt(self, use_case: str, satim_chunks: List[str], intl_chunks: List[str],
                                 conversation_history: Optional[List[Dict]], is_continuation: bool) -> str:
         """
         Build the comparative analysis prompt with clear priority instructions
@@ -220,7 +220,7 @@ class QAService:
         """Build conversation context string if available"""
         if not conversation_history:
             return ""
-            
+
         context = "## Conversation Context:\n"
         for msg in conversation_history[-3:]:
             role = "User" if msg["role"] == "user" else "Assistant"
