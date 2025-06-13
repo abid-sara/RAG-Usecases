@@ -1,0 +1,44 @@
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Add animation for dark and light mode switch */
+:root {
+  --transition-duration: 0.5s;
+}
+
+body {
+  transition: background-color var(--transition-duration), color var(--transition-duration);
+  /* Ensure the transition applies to all elements */
+  transition-property: background-color, color, fill, border-color;
+  transition-duration: var(--transition-duration);
+}
+
+/* Additional styles for other elements */
+#logo-text {
+  font-size: 2rem; /* Increase font size */
+  margin-top: -1rem; /* Move text slightly higher */
+  margin-bottom: 0.5rem; /* Adjust space below the text */
+}
+
+/* RTL text styling */
+.rtl-text {
+  direction: rtl; /* Set text direction to RTL */
+  unicode-bidi: plaintext; /* Ensure punctuation behaves properly */
+  text-align: center; /* Align text to the start (right in RTL) */
+}
+
+/* Reminder text styling */
+.reminder-text {
+  font-size: 0.85rem; /* Reduce size to approximately 53% of its original size (0.75rem * 0.53) */
+  color: #6d6d6d; /* Light grey color */
+  text-align: center; /* Center align the text */
+  margin-top: 0.5rem; /* Add spacing above the reminder */
+}
