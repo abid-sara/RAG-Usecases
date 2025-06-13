@@ -240,7 +240,7 @@ class HybridVectorizer:
             return []
         
         # Preprocess query
-        query_tokens, preprocessed_query = self.preprocess_arabic_text(query)
+        query_tokens, preprocessed_query = self.preprocess_english_text(query)
         
         # Get scores based on method
         if method == 'tfidf':

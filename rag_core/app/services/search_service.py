@@ -29,6 +29,10 @@ class SearchService:
             search_method (str): Method to use for search ('hybrid', 'tfidf', 'bm25', 'embeddings')
                                  If None, uses the DEFAULT_SEARCH_METHOD from settings
         """
+
+        self.DATA_PATH = DATA_PATH
+        self.VECTOR_DB_PATH = VECTOR_DB_PATH
+        
         # Create directory for data file if it doesn't exist
         data_dir = os.path.dirname(DATA_PATH)
         if not os.path.exists(data_dir):
