@@ -12,7 +12,7 @@ export function PreviewMessage({ message }: { message: message }) {
           </div>
         ) : (
           // User message
-          <div className="flex flex-col w-full bg-muted/20 rounded-lg p-6 bg-[grey]">
+          <div className="flex flex-col w-full bg-muted/20 rounded-lg p-6 bg-[white]">
             <pre className="whitespace-pre-wrap font-sans text-black text-base break-words">
               {message.content}
             </pre>

@@ -152,15 +152,7 @@ def question_answer():
 
         # Use generate_comparative_analysis instead of process_query
         analysis = qa_service.generate_comparative_analysis(query, conversation_history)
-
-        # If query was rejected for security reasons
-        if analysis.get('security_flag', False):
-            return jsonify({
-                'query': query,
-                'answer': analysis['answer'],
-                'status': 'rejected',
-                'security_flag': True
-            }), 403
+       
 
         # Add the new messages to conversation history
         conversation_manager.add_message(user_id, 'user', query)

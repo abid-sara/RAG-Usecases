@@ -32,7 +32,6 @@ class QAService:
             return {
                 "processed_use_case": use_case,
                 "is_continuation": False,
-                "is_secure": True
             }
         
         try:
@@ -42,7 +41,6 @@ class QAService:
 
             # Safer response parsing
             is_continuation = "true" in response_text.lower().split("is_continuation:")[1].split()[0].lower() if "is_continuation:" in response_text else False
-            is_secure = "false" not in response_text.lower().split("is_secure:")[1].split()[0].lower() if "is_secure:" in response_text else True
             
             processed_use_case = use_case
             if "processed_use_case:" in response_text:
@@ -52,16 +50,14 @@ class QAService:
 
             return {
                 "processed_use_case": processed_use_case,
-                "is_continuation": is_continuation,
-                "is_secure": is_secure
+                "is_continuation": is_continuation
             }
             
         except Exception as e:
             logger.error(f"Preprocessing error: {str(e)}", exc_info=True)
             return {
                 "processed_use_case": use_case,
-                "is_continuation": False,
-                "is_secure": False
+                "is_continuation": False
             }
 
     def generate_comparative_analysis(self, use_case: str, conversation_history: Optional[List[Dict]] = None) -> Dict:
@@ -70,14 +66,7 @@ class QAService:
         """
         # Preprocess with security check
         analysis = self.preprocess_use_case(use_case, conversation_history)
-        if not analysis["is_secure"]:
-            logger.warning(f"Blocked insecure query: {use_case[:50]}...")
-            return {
-                "answer": "Request blocked due to security policy.",
-                "status": "rejected",
-                "security_flag": True
-            }
-
+        
         try:
             # Get results from both sources
             satim_results = self._get_search_results(
@@ -119,20 +108,33 @@ class QAService:
             logger.error(f"{source} search failed: {str(e)}")
             return []
 
+
     def _generate_analysis_response(self, use_case: str, satim_results: List[Tuple[str, float]], 
                                   intl_results: List[Tuple[str, float]], conversation_history: Optional[List[Dict]],
                                   is_continuation: bool) -> Dict:
-        """Generate the final analysis response"""
+        """Generate the final analysis response with compatibility assessment"""
         # Prepare chunks
         satim_chunks = [chunk for chunk, _ in satim_results]
         intl_chunks = [chunk for chunk, _ in intl_results]
+
+        # Calculate base compatibility score from search results
+        satim_scores = [score for _, score in satim_results]
+        intl_scores = [score for _, score in intl_results]
+
+        avg_score = 0
+        if satim_scores or intl_scores:
+            avg_score = (sum(satim_scores) + sum(intl_scores)) / (len(satim_scores) + len(intl_scores)) if satim_scores or intl_scores else 0
+            # Convert to 0-100 scale
+            avg_score = int(avg_score * 100)
 
         # Handle empty results
         if not satim_chunks and not intl_chunks:
             return {
                 "answer": "No relevant policies or standards found.",
                 "status": "no_results",
-                "is_continuation": is_continuation
+                "is_continuation": is_continuation,
+                "compatibility_score": 0,
+                "assessment_level": "LOW"
             }
 
         # Generate analysis
@@ -143,9 +145,9 @@ class QAService:
             conversation_history=conversation_history,
             is_continuation=is_continuation
         )
-        
+
         response = self.model.generate_content(prompt)
-        
+
         return {
             "answer": response.text,
             "status": "success",
@@ -156,7 +158,9 @@ class QAService:
             },
             "scores": {
                 "satim": [float(score) for _, score in satim_results],
-                "international": [float(score) for _, score in intl_results]
+                "international": [float(score) for _, score in intl_results],
+                "compatibility_score": avg_score,
+                "assessment_level": "HIGH" if avg_score >= 80 else "MEDIUM" if avg_score >= 60 else "LOW"
             }
         }
 
@@ -220,7 +224,7 @@ processed_use_case: [processed text] - Clean version of the use case
                              REQUIRED ACTIONS
     [List prioritized actions, numbered 1-5, each on a new line]
 
-
+    If the question was in french answer in french, else answer in english
     """
         return prompt
 
