@@ -13,7 +13,6 @@ import os
 from nltk.corpus import stopwords
 from huggingface_hub import login
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -49,15 +48,15 @@ class HybridVectorizer:
         except Exception as e:
             logger.warning(f"Could not download NLTK data: {e}")
 
-        # Use English stopwords
-        self.english_stopwords = set(stopwords.words('english'))
+        # Use minimal stopwords
+        self.minimal_stopwords = {'a', 'an', 'the', 'and', 'or', 'but'}
 
-        # Initialize vectorizers
+        # Initialize vectorizers with more lenient settings
         self.tfidf_vectorizer = TfidfVectorizer(
-            ngram_range=(1, 2),
-            min_df=2,
-            max_df=0.85,
-            stop_words='english',  # Use English stopwords in vectorizer
+            ngram_range=(1, 3),  # Allow 1-3 word phrases
+            min_df=1,  # Accept terms that appear at least once
+            max_df=0.95,  # More lenient with common terms
+            stop_words=None,  # Don't remove stopwords at vectorizer level
             sublinear_tf=True
         )
 
@@ -95,33 +94,51 @@ class HybridVectorizer:
         }
 
     def normalize_english_text(self, text):
-        """Clean English text by removing unwanted characters and extra spaces."""
+        """Clean English text while preserving meaningful content."""
         if not isinstance(text, str):
             return ""
-
-        # Remove special characters (keep letters, numbers, and spaces)
-        text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-
-        # Lowercase
+            
+        # Convert to lowercase
         text = text.lower()
-
-        # Replace multiple spaces with single space
+        
+        # Replace multiple whitespace with single space
         text = re.sub(r'\s+', ' ', text)
-
+        
+        # Remove special characters but preserve dots, dashes, and parentheses
+        text = re.sub(r'[^a-zA-Z0-9\s\.\-\(\)]', ' ', text)
+        
         return text.strip()
 
     def preprocess_english_text(self, text):
         """Preprocess English text for better search results."""
+        # Normalize text
         text = self.normalize_english_text(text)
-
+        
         # Tokenize
         tokens = word_tokenize(text)
-
-        # Remove stopwords
-        tokens = [token for token in tokens if token not in self.english_stopwords]
-
+        
+        # Remove only minimal stopwords
+        tokens = [token for token in tokens if token not in self.minimal_stopwords]
+        
+        # Join tokens back preserving more of the original text
         return tokens, ' '.join(tokens)
 
+    def prepare_chunk_text(self, chunk):
+        """Combine text with section title for better context."""
+        try:
+            section = chunk.get('section_title', '').strip()
+            text = chunk.get('text', '').strip()
+            document = chunk.get('document', '').strip()
+            
+            # Combine document title, section, and text for better context
+            if section and document:
+                return f"{document} - {section}: {text}"
+            elif document:
+                return f"{document}: {text}"
+            return text
+        except Exception as e:
+            logger.error(f"Error preparing chunk text: {e}")
+            return chunk.get('text', '')
 
     def get_embeddings(self, texts):
         """Generate embeddings for a list of texts using the embedding model"""
@@ -148,6 +165,8 @@ class HybridVectorizer:
     
     def fit(self, chunks):
         """Fit the hybrid vectorizer on document chunks"""
+        logger.info(f"Starting to fit vectorizer with {len(chunks)} chunks")
+        
         # Handle case where chunks is None or empty
         if not chunks:
             logger.warning("No document chunks provided to fit. Vectorizer remains unfitted.")
@@ -161,7 +180,15 @@ class HybridVectorizer:
         preprocessed_chunks = []
         
         for chunk in chunks:
-            tokens, preprocessed = self.preprocess_english_text(chunk)
+            # Prepare text with context
+            text = self.prepare_chunk_text(chunk)
+            tokens, preprocessed = self.preprocess_english_text(text)
+            
+            # Debug logging
+            logger.debug(f"Original chunk: {text[:200]}")
+            logger.debug(f"Preprocessed chunk: {preprocessed[:200]}")
+            logger.debug(f"Number of tokens: {len(tokens)}")
+            
             tokenized_chunks.append(tokens)
             preprocessed_chunks.append(preprocessed)
         
@@ -169,16 +196,13 @@ class HybridVectorizer:
         self.preprocessed_chunks = preprocessed_chunks
         
         try:
-            # Handle edge case for TF-IDF with only one document
-            if len(chunks) == 1:
-                logger.warning("Only one document provided. Using simplified TF-IDF.")
-                self.tfidf_vectorizer = TfidfVectorizer(min_df=1, max_df=1.0)
-                
             # Fit TF-IDF
+            logger.info("Fitting TF-IDF vectorizer...")
             self.tfidf_vectors = self.tfidf_vectorizer.fit_transform(preprocessed_chunks)
-            logger.info(f"TF-IDF vectorizer fitted on {len(chunks)} chunks")
+            logger.info(f"TF-IDF vectorizer fitted successfully with {self.tfidf_vectors.shape[1]} features")
             
             # Initialize BM25
+            logger.info("Initializing BM25...")
             self.bm25 = BM25Okapi(tokenized_chunks)
             logger.info("BM25 model initialized")
             
@@ -192,6 +216,7 @@ class HybridVectorizer:
             
             # Set fitted flag to True
             self.is_fitted = True
+            logger.info("Vectorizer fitting completed successfully")
             return True
         except Exception as e:
             logger.error(f"Error during vectorizer fitting: {e}")
@@ -230,10 +255,8 @@ class HybridVectorizer:
         # Check if vectorizer has been fitted
         if not self.is_fitted:
             logger.warning("Vectorizer hasn't been fitted with documents yet. Returning empty results.")
-            return []  # Return empty list instead of raising exception
-        else :
-            logger.info("Vectorizer is fitted with the documents")
-            
+            return []
+        
         # Check if we have documents to search
         if not self.chunks:
             logger.warning("No documents to search. Returning empty results.")
@@ -241,6 +264,7 @@ class HybridVectorizer:
         
         # Preprocess query
         query_tokens, preprocessed_query = self.preprocess_english_text(query)
+        logger.debug(f"Preprocessed query: {preprocessed_query}")
         
         # Get scores based on method
         if method == 'tfidf':

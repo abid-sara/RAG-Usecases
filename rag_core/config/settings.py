@@ -21,7 +21,7 @@ SATIM_VECTOR_DB_PATH = os.getenv('SATIM_VECTOR_DB_PATH', 'data/vector_db_satim.f
 INTL_VECTOR_DB_PATH = os.getenv('INTL_VECTOR_DB_PATH', 'data/vector_db_international.faiss')
 
 SATIM_DATA_PATH = os.getenv('SATIM_DATA_PATH', 'data/satim_chunks_cleaned.json')
-INTL_DATA_PATH = os.getenv('INTL_DATA_PATH', 'data/international_chunks_cleaned.json')
+INTL_DATA_PATH = os.getenv('INTL_DATA_PATH', 'data/pci_dss_chunks.json')
 
 
 # Search Method Configuration
