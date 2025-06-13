@@ -1,7 +1,7 @@
 import { ChatInput } from "@/components/custom/chatinput";
 import {
-  PreviewMessage,
   ThinkingMessage,
+  PreviewMessage,
 } from "../../components/custom/message";
 import { useScrollToBottom } from "@/components/custom/use-scroll-to-bottom";
 import { useState } from "react";
@@ -33,7 +33,7 @@ export function Chat() {
         content: messageText,
         role: "user",
         id: traceId,
-        timestamp: new Date(),
+        timestamp: "",
       },
     ]);
     setQuestion("");
@@ -41,6 +41,8 @@ export function Chat() {
     try {
       const response = await axios.post(API_URL, {
         query: messageText,
+        user_id: "user",
+        use_context: true,
         top_n: 20,
         weights: {
           tfidf: 0.3,
@@ -55,7 +57,7 @@ export function Chat() {
           content: response.data.answer,
           role: "assistant",
           id: uuidv4(),
-          timestamp: new Date(),
+          timestamp: "",
         },
       ]);
     } catch (error) {
@@ -69,7 +71,7 @@ export function Chat() {
     <div className="flex flex-col min-w-0 h-dvh bg-background">
       <Header />
       <div
-        className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4"
+        className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 items-center" // Added items-center
         ref={messagesContainerRef}
       >
         {messages.length === 0 && <Overview />}

@@ -1,5 +1,6 @@
 """Enhanced QA Service for SATIM and International Standards Comparison"""
 
+import datetime
 from app.services.llm.factory import create_llm
 from config.settings import TOP_N_RESULTS
 import logging
@@ -35,7 +36,7 @@ class QAService:
             }
         
         try:
-            prompt = self._build_analysis_prompt(use_case, conversation_history)
+            prompt = self._build_preprocessing_prompt(use_case, conversation_history)
             response = self.model.generate_content(prompt)
             response_text = response.text
 
@@ -135,7 +136,7 @@ class QAService:
             }
 
         # Generate analysis
-        prompt = self._build_comparative_prompt(
+        prompt = self._build_analysis_prompt(
             use_case=use_case,
             satim_chunks=satim_chunks,
             intl_chunks=intl_chunks,
@@ -159,63 +160,71 @@ class QAService:
             }
         }
 
-    def _build_analysis_prompt(self, use_case: str, satim_chunks: List[str], intl_chunks: List[str],
-                                conversation_history: Optional[List[Dict]], is_continuation: bool) -> str:
+    def _build_preprocessing_prompt(self, use_case: str, conversation_history: Optional[List[Dict]] = None) -> str:
         """
-        Build the comparative analysis prompt with clear priority instructions
+        Build the preprocessing prompt to determine context and security
         """
-        context = self._build_conversation_context(conversation_history)
-        
+        context = self._build_conversation_context(conversation_history) if conversation_history else ""
+
         prompt = f"""
-# Compliance Analysis Task
+Analyze this use case for security and context:
 
-## Priority Instructions:
-1. FIRST analyze against SATIM policies (Primary)
-2. THEN compare with international standards (Secondary)
-
-## Use Case:
+USE CASE:
 {use_case}
 
-{'(Note: Continuation of previous discussion)\n' if is_continuation else ''}
+{context if context else ""}
 
-## Company Policies (SATIM) - PRIMARY:
-{satim_chunks[0] if satim_chunks else "No relevant SATIM policies found"}
-
-## International Standards - SECONDARY:
-{intl_chunks[0] if intl_chunks else "No relevant international standards found"}
-
-{context}
-
-## Analysis Framework:
-
-### 1. SATIM Compliance (Required)
-- Compliance Status: [FULL/PARTIAL/NONE]
-- Met Requirements:
-- Violations:
-- Exceeds Requirements:
-
-### 2. International Comparison (Recommended)
-- Alignment Status: [FULL/PARTIAL/NONE]
-- Aligned Aspects:
-- Deviations:
-- Best Practices:
-
-### 3. Recommendations
-[Prioritized actions with SATIM compliance first]
-
-## Response Format:
-```markdown
-### Compliance Summary
-- **SATIM**: [status] - [summary]
-- **International**: [status] - [summary]
-
-### Action Plan
-1. [Critical SATIM action]
-2. [Important SATIM action] 
-3. [International improvement]
+Please provide:
+is_continuation: [true/false] - Is this related to previous conversation?
+is_secure: [true/false] - Does this contain any security risks?
+processed_use_case: [processed text] - Clean version of the use case
 """
         return prompt
-    
+
+
+
+    def _build_analysis_prompt(self, use_case: str, satim_chunks: List[str], intl_chunks: List[str],
+                             conversation_history: Optional[List[Dict]], is_continuation: bool) -> str:
+        """
+        Build the comparative analysis prompt with clear formatting
+        """
+        context = self._build_conversation_context(conversation_history) if conversation_history else ""
+
+        prompt = f"""
+
+    USE CASE:
+    {use_case}
+
+    {'(Note: This is a continuation of previous discussion)\\n' if is_continuation else ''}
+
+    SATIM POLICIES:
+    {satim_chunks[0] if satim_chunks else "No relevant SATIM policies found"}
+
+    INTERNATIONAL STANDARDS:
+    {intl_chunks[0] if intl_chunks else "No relevant international standards found"}
+
+    {context}
+
+    Please provide your analysis in this exact format:
+
+                             COMPLIANCE SUMMARY
+    SATIM Status:
+    [Brief summary of SATIM compliance]
+
+    International Status:
+    [Brief summary of international standards compliance]
+
+                               KEY FINDINGS
+    [List 3-5 main compliance gaps, each on a new line with centered bullets]
+
+                             REQUIRED ACTIONS
+    [List prioritized actions, numbered 1-5, each on a new line]
+
+
+    """
+        return prompt
+
+
     def _build_conversation_context(self, conversation_history: Optional[List[Dict]]) -> str:
         """Build conversation context string if available"""
         if not conversation_history:

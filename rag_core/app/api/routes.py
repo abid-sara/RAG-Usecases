@@ -117,7 +117,7 @@ def search():
 
 @api.route('/qa', methods=['POST', 'OPTIONS'])
 @cross_origin()
-async def question_answer():
+def question_answer():
     """
     Question answering endpoint that performs comparative analysis
     """
@@ -134,7 +134,7 @@ async def question_answer():
                 'status': 'error',
                 'metadata': {
                     'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                    'user': 'abid-sara'
+                    'user': 'user'
                 }
             }), 400
 
@@ -200,7 +200,7 @@ async def question_answer():
             'status': 'error',
             'metadata': {
                 'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                'user': 'abid-sara'
+                'user': 'user'
             }
         }), 500
         

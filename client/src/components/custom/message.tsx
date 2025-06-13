@@ -79,18 +79,13 @@ export function PreviewMessage({ message }: { message: message }) {
 
 export function ThinkingMessage() {
   return (
-    <div className="flex items-start gap-4 px-4">
-      <div className="flex flex-col gap-2 w-full max-w-3xl">
-        <div className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded text-sm">
-          <span className="text-muted-foreground">
-            {new Date().toISOString().slice(0, 19).replace("T", " ")} UTC
-          </span>
-          <span className="font-medium">AI Assistant</span>
-        </div>
-        <div className="w-full rounded-xl px-6 py-4 bg-card border shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
-            <span>Analyzing...</span>
+    <div className="flex flex-col w-full items-center px-4">
+      <div className="w-full md:max-w-4xl flex flex-col">
+        <div className="flex flex-col w-full bg-muted/50 rounded-lg p-6">
+          <div className="flex gap-2 items-center">
+            <span className="animate-bounce">●</span>
+            <span className="animate-bounce [animation-delay:0.2s]">●</span>
+            <span className="animate-bounce [animation-delay:0.4s]">●</span>
           </div>
         </div>
       </div>

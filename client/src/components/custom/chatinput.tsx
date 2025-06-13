@@ -25,7 +25,7 @@ export const ChatInput = ({
       />
 
       <Textarea
-        placeholder="Example: What are the PCI DSS requirements for password management?"
+        placeholder="Enter your use case"
         className={cx(
           "min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted"
         )}
